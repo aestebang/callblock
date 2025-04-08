@@ -1,10 +1,14 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"> <!-- Reemplaza con el nombre real de tu paquete -->
 
+    <!-- Permisos necesarios -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
     <uses-permission android:name="android.permission.CALL_SCREENING" />
+
+    <!-- Solo Android 9 (API 28) en adelante permite usar CallScreeningService -->
+    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="33" />
 
     <application
         android:name=".MainApplication"
@@ -28,20 +32,19 @@
             </intent-filter>
         </activity>
 
-        <!-- Servicio de bloqueo de llamadas -->
-        <service
-            android:name=".callblock.CallScreener"
-            android:permission="android.permission.BIND_SCREENING_SERVICE"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.telecom.CallScreeningService" />
-            </intent-filter>
-        </service>
+        <!-- Servicio de Call Screening -->
+  <service
+    android:name="com.callblocking.callblock.CallScreener"
+    android:permission="android.permission.BIND_SCREENING_SERVICE"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.telecom.CallScreeningService" />
+    </intent-filter>
+</service>
 
-        <!-- Meta-data opcional (útil para algunos dispositivos) -->
-        <meta-data
-            android:name="android.telecom.CallScreeningService"
-            android:value=".callblock.CallScreener" />
+<meta-data
+    android:name="android.telecom.CallScreeningService"
+    android:value="com.callblocking.callblock.CallScreener" />
 
     </application>
 </manifest>
