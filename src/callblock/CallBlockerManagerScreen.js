@@ -1,142 +1,4 @@
-// import React, { useState } from 'react';
-// import {
-//   View,
-//   Text,
-//   TextInput,
-//   TouchableOpacity,
-//   FlatList,
-//   StyleSheet,
-//   Alert
-// } from 'react-native';
-// import CallBlocker from './CallBlocker';
-
-// const CallBlockerManagerScreen = () => {
-//   const [number, setNumber] = useState('');
-//   const [blockedNumbers, setBlockedNumbers] = useState([]);
-
-//   const addNumber = () => {
-//     const trimmed = number.trim();
-//     if (trimmed && !blockedNumbers.includes(trimmed)) {
-//       setBlockedNumbers([...blockedNumbers, trimmed]);
-//       setNumber('');
-//     } else {
-//       Alert.alert('Aviso', 'El número ya está en la lista o es inválido');
-//     }
-//   };
-
-//   const removeNumber = (toRemove) => {
-//     setBlockedNumbers(blockedNumbers.filter(n => n !== toRemove));
-//   };
-
-//   const saveList = () => {
-//     CallBlocker.setBlockedNumbers(blockedNumbers);
-//     Alert.alert('Éxito', 'Lista de números bloqueados actualizada');
-//   };
-
-//   return (
-//     <View style={styles.container}>
-//       <Text style={styles.title}>Gestor de Números Bloqueados</Text>
-
-//       <View style={styles.inputContainer}>
-//         <TextInput
-//           style={styles.input}
-//           placeholder="Ingresa un número"
-//           value={number}
-//           onChangeText={setNumber}
-//           keyboardType="phone-pad"
-//         />
-//         <TouchableOpacity style={styles.addButton} onPress={addNumber}>
-//           <Text style={styles.buttonText}>Agregar</Text>
-//         </TouchableOpacity>
-//       </View>
-
-//       <FlatList
-//         data={blockedNumbers}
-//         keyExtractor={(item) => item}
-//         ListEmptyComponent={<Text style={styles.empty}>No hay números bloqueados.</Text>}
-//         renderItem={({ item }) => (
-//           <View style={styles.listItem}>
-//             <Text style={styles.number}>{item}</Text>
-//             <TouchableOpacity onPress={() => removeNumber(item)}>
-//               <Text style={styles.remove}>Eliminar</Text>
-//             </TouchableOpacity>
-//           </View>
-//         )}
-//       />
-
-//       <TouchableOpacity style={styles.saveButton} onPress={saveList}>
-//         <Text style={styles.buttonText}>Guardar Lista</Text>
-//       </TouchableOpacity>
-//     </View>
-//   );
-// };
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     padding: 20,
-//     backgroundColor: '#fff',
-//   },
-//   title: {
-//     fontSize: 22,
-//     fontWeight: 'bold',
-//     marginBottom: 15,
-//     textAlign: 'center',
-//   },
-//   inputContainer: {
-//     flexDirection: 'row',
-//     marginBottom: 15,
-//   },
-//   input: {
-//     flex: 1,
-//     borderColor: '#999',
-//     borderWidth: 1,
-//     borderRadius: 8,
-//     paddingHorizontal: 10,
-//     height: 45,
-//   },
-//   addButton: {
-//     backgroundColor: '#4CAF50',
-//     paddingHorizontal: 15,
-//     justifyContent: 'center',
-//     borderRadius: 8,
-//     marginLeft: 10,
-//   },
-//   listItem: {
-//     flexDirection: 'row',
-//     justifyContent: 'space-between',
-//     paddingVertical: 12,
-//     borderBottomWidth: 1,
-//     borderBottomColor: '#ccc',
-//   },
-//   number: {
-//     fontSize: 16,
-//   },
-//   remove: {
-//     color: 'red',
-//     fontWeight: 'bold',
-//   },
-//   saveButton: {
-//     marginTop: 20,
-//     backgroundColor: '#2196F3',
-//     paddingVertical: 12,
-//     borderRadius: 8,
-//     alignItems: 'center',
-//   },
-//   buttonText: {
-//     color: '#fff',
-//     fontWeight: 'bold',
-//     fontSize: 16,
-//   },
-//   empty: {
-//     textAlign: 'center',
-//     color: '#666',
-//     marginTop: 10,
-//   }
-// });
-
-// export default CallBlockerManagerScreen;
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -145,7 +7,9 @@ import {
   Platform,
   Alert,
   ScrollView,
-  PermissionsAndroid
+  PermissionsAndroid,
+  TextInput,
+  FlatList,
 } from 'react-native';
 import CallBlocker from './CallBlocker';
 
@@ -154,35 +18,35 @@ const CallBlockingScreen = () => {
   const [permissions, setPermissions] = useState({
     phoneState: false,
     callLog: false,
-    answerCalls: false
+    answerCalls: false,
   });
+  const [blockedNumbers, setBlockedNumbers] = useState([]);
+  const [newNumber, setNewNumber] = useState('');
 
   useEffect(() => {
     checkPermissions();
     if (Platform.OS === 'android' && Platform.Version >= 28) {
       checkServiceStatus();
+      loadBlockedNumbers();
     }
   }, []);
 
   const checkPermissions = async () => {
     if (Platform.OS === 'android') {
       const phoneState = await PermissionsAndroid.check(
-        PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE
+        PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
       );
-      
       const callLog = await PermissionsAndroid.check(
-        PermissionsAndroid.PERMISSIONS.READ_CALL_LOG
+        PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
       );
-      
-      const answerCalls = Platform.Version >= 26 ? await PermissionsAndroid.check(
-        PermissionsAndroid.PERMISSIONS.ANSWER_PHONE_CALLS
-      ) : false;
+      const answerCalls =
+        Platform.Version >= 26
+          ? await PermissionsAndroid.check(
+              PermissionsAndroid.PERMISSIONS.ANSWER_PHONE_CALLS,
+            )
+          : false;
 
-      setPermissions({
-        phoneState,
-        callLog,
-        answerCalls: Platform.Version >= 26 ? answerCalls : false
-      });
+      setPermissions({phoneState, callLog, answerCalls});
     }
   };
 
@@ -191,23 +55,23 @@ const CallBlockingScreen = () => {
       try {
         const permissions = [
           PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
-          PermissionsAndroid.PERMISSIONS.READ_CALL_LOG
+          PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
         ];
-        
         if (Platform.Version >= 26) {
           permissions.push(PermissionsAndroid.PERMISSIONS.ANSWER_PHONE_CALLS);
         }
-        
+
         const granted = await PermissionsAndroid.requestMultiple(permissions);
-        
         setPermissions({
-          phoneState: granted['android.permission.READ_PHONE_STATE'] === 'granted',
+          phoneState:
+            granted['android.permission.READ_PHONE_STATE'] === 'granted',
           callLog: granted['android.permission.READ_CALL_LOG'] === 'granted',
-          answerCalls: Platform.Version >= 26 
-            ? granted['android.permission.ANSWER_PHONE_CALLS'] === 'granted'
-            : false
+          answerCalls:
+            Platform.Version >= 26
+              ? granted['android.permission.ANSWER_PHONE_CALLS'] === 'granted'
+              : false,
         });
-        
+
         checkServiceStatus();
       } catch (err) {
         console.warn(err);
@@ -234,7 +98,35 @@ const CallBlockingScreen = () => {
     }
   };
 
-  const allPermissionsGranted = permissions.phoneState && permissions.callLog && 
+  const loadBlockedNumbers = async () => {
+    try {
+      const numbers = await CallBlocker.getBlockedNumbers(); // ← función nativa
+      setBlockedNumbers(numbers || []);
+    } catch (err) {
+      console.error('Error al cargar números bloqueados:', err);
+    }
+  };
+
+  const addNumberToBlockList = async () => {
+    const sanitized = newNumber.trim();
+    if (!sanitized || !/^\+?\d+$/.test(sanitized)) {
+      Alert.alert('Error', 'Número inválido');
+      return;
+    }
+
+    try {
+      await CallBlocker.addBlockedNumber(sanitized); // ← función nativa
+      setNewNumber('');
+      loadBlockedNumbers();
+    } catch (error) {
+      console.error('Error al agregar número:', error);
+      Alert.alert('Error', 'No se pudo agregar el número');
+    }
+  };
+
+  const allPermissionsGranted =
+    permissions.phoneState &&
+    permissions.callLog &&
     (Platform.Version < 26 || permissions.answerCalls);
 
   if (Platform.OS !== 'android') {
@@ -260,78 +152,102 @@ const CallBlockingScreen = () => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Bloqueo de Llamadas</Text>
-      
+
+      {/* Servicio */}
       <View style={styles.statusContainer}>
         <Text style={styles.statusTitle}>Estado del servicio:</Text>
-        <Text style={[
-          styles.statusValue, 
-          isServiceEnabled ? styles.statusEnabled : styles.statusDisabled
-        ]}>
+        <Text
+          style={[
+            styles.statusValue,
+            isServiceEnabled ? styles.statusEnabled : styles.statusDisabled,
+          ]}>
           {isServiceEnabled ? 'ACTIVADO' : 'DESACTIVADO'}
         </Text>
       </View>
 
+      {/* Permisos */}
       <View style={styles.permissionsContainer}>
         <Text style={styles.sectionTitle}>Permisos</Text>
-        
-        <View style={styles.permissionItem}>
-          <Text>Estado del teléfono</Text>
-          <Text style={permissions.phoneState ? styles.granted : styles.denied}>
-            {permissions.phoneState ? '✓' : '✗'}
-          </Text>
-        </View>
-        
-        <View style={styles.permissionItem}>
-          <Text>Registro de llamadas</Text>
-          <Text style={permissions.callLog ? styles.granted : styles.denied}>
-            {permissions.callLog ? '✓' : '✗'}
-          </Text>
-        </View>
-        
-        {Platform.Version >= 26 && (
-          <View style={styles.permissionItem}>
-            <Text>Gestión de llamadas</Text>
-            <Text style={permissions.answerCalls ? styles.granted : styles.denied}>
-              {permissions.answerCalls ? '✓' : '✗'}
-            </Text>
-          </View>
+        {['phoneState', 'callLog', 'answerCalls'].map(
+          (key, idx) =>
+            (Platform.Version >= 26 || key !== 'answerCalls') && (
+              <View key={idx} style={styles.permissionItem}>
+                <Text>
+                  {
+                    {
+                      phoneState: 'Estado del teléfono',
+                      callLog: 'Registro de llamadas',
+                      answerCalls: 'Gestión de llamadas',
+                    }[key]
+                  }
+                </Text>
+                <Text style={permissions[key] ? styles.granted : styles.denied}>
+                  {permissions[key] ? '✓' : '✗'}
+                </Text>
+              </View>
+            ),
         )}
       </View>
 
-      {!allPermissionsGranted && (
-        <TouchableOpacity 
-          style={styles.permissionButton} 
-          onPress={requestPermissions}
-        >
+      {/* Botones */}
+      {!allPermissionsGranted ? (
+        <TouchableOpacity
+          style={styles.permissionButton}
+          onPress={requestPermissions}>
           <Text style={styles.buttonText}>Solicitar Permisos</Text>
         </TouchableOpacity>
-      )}
-
-      {allPermissionsGranted && (
-        <TouchableOpacity 
-          style={styles.button} 
-          onPress={enableCallBlocking}
-        >
+      ) : (
+        <TouchableOpacity style={styles.button} onPress={enableCallBlocking}>
           <Text style={styles.buttonText}>
-            {isServiceEnabled ? "Configurar Bloqueo" : "Activar Bloqueo"}
+            {isServiceEnabled ? 'Configurar Bloqueo' : 'Activar Bloqueo'}
           </Text>
         </TouchableOpacity>
       )}
 
+      {/* Formulario para agregar números */}
+      <View style={styles.blockListContainer}>
+        <Text style={styles.sectionTitle}>Agregar número a bloquear</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ej. +123456789"
+          keyboardType="phone-pad"
+          value={newNumber}
+          onChangeText={setNewNumber}
+        />
+        <TouchableOpacity style={styles.button} onPress={addNumberToBlockList}>
+          <Text style={styles.buttonText}>Agregar</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Lista de números bloqueados */}
+      <View style={styles.blockListContainer}>
+        <Text style={styles.sectionTitle}>Números bloqueados</Text>
+        {blockedNumbers.length === 0 ? (
+          <Text style={styles.note}>No hay números bloqueados.</Text>
+        ) : (
+          <FlatList
+            data={blockedNumbers}
+            keyExtractor={(item, index) => index.toString()}
+            renderItem={({item}) => (
+              <View style={styles.blockedItem}>
+                <Text>{item}</Text>
+              </View>
+            )}
+          />
+        )}
+      </View>
+
+      {/* Instrucción manual */}
       <View style={styles.manualPermissionContainer}>
         <Text style={styles.sectionTitle}>Instrucciones Manuales</Text>
         <Text style={styles.note}>
-          Si el servicio aún no está activado, abre la configuración de filtrado de llamadas y selecciona esta app como predeterminada.
+          Si el servicio aún no está activado, abre la configuración de filtrado
+          de llamadas y selecciona esta app como predeterminada.
         </Text>
         <TouchableOpacity style={styles.button} onPress={enableCallBlocking}>
           <Text style={styles.buttonText}>Abrir Configuración del Sistema</Text>
         </TouchableOpacity>
       </View>
-
-      <Text style={styles.note}>
-        Para que el bloqueo de llamadas funcione, debes seleccionar esta aplicación
-        como servicio de filtrado de llamadas en la configuración del sistema.
-      </Text>
     </ScrollView>
   );
 };
@@ -435,6 +351,24 @@ const styles = StyleSheet.create({
     padding: 15,
     backgroundColor: '#f0f0f0',
     borderRadius: 8,
+  },
+  input: {
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginVertical: 10,
+  },
+  blockListContainer: {
+    marginVertical: 20,
+    padding: 15,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+  },
+  blockedItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
   },
 });
 

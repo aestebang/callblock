@@ -1,4 +1,4 @@
-package com.tuapp.callblock
+package com.callblocking.callblock
 
 import android.os.Build
 import android.telecom.Call

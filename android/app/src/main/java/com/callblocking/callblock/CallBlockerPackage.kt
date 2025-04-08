@@ -1,4 +1,4 @@
-package com.yourcallblockerapp
+package com.callblocking.callblock
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule

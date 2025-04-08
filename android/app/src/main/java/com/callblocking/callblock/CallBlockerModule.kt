@@ -1,4 +1,4 @@
-package com.yourcallblockerapp
+package com.callblocking.callblock
 
 import android.content.Intent
 import android.os.Build
