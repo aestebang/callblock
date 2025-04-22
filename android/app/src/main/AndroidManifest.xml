@@ -6,6 +6,11 @@
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
     <uses-permission android:name="android.permission.CALL_SCREENING" />
+    <uses-permission android:name="android.permission.BIND_SCREENING_SERVICE" />
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
+    <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
 
     <!-- Solo Android 9 (API 28) en adelante permite usar CallScreeningService -->
     <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="33" />
@@ -30,21 +35,37 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+            </intent-filter>
         </activity>
 
         <!-- Servicio de Call Screening -->
-  <service
-    android:name="com.callblocking.callblock.CallScreener"
-    android:permission="android.permission.BIND_SCREENING_SERVICE"
-    android:exported="true">
-    <intent-filter>
-        <action android:name="android.telecom.CallScreeningService" />
-    </intent-filter>
-</service>
+        <service
+            android:name="com.callblocking.callblock.CallScreener"
+            android:permission="android.permission.BIND_SCREENING_SERVICE"
+            android:exported="true">
+            <intent-filter android:priority="1">
+                <action android:name="android.telecom.CallScreeningService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.telecom.CALL_SCREENING_FILTER"
+                android:value="2" />
+            <meta-data
+                android:name="android.telecom.CALL_SCREENING_ROLE"
+                android:value="1" />
+        </service>
 
-<meta-data
-    android:name="android.telecom.CallScreeningService"
-    android:value="com.callblocking.callblock.CallScreener" />
+        <!-- Declaración de roles -->
+        <meta-data
+            android:name="android.app.role.CALL_SCREENING"
+            android:value="true" />
+
+        <meta-data
+            android:name="android.telecom.CALL_SCREENING_APP"
+            android:value="true" />
 
     </application>
 </manifest>

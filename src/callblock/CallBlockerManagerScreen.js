@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   TextInput,
   FlatList,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import {CallBlockerService} from './services/CallBlocker';
 
@@ -26,6 +27,9 @@ const CallBlockingScreen = () => {
   const [blockedNumbers, setBlockedNumbers] = useState([]);
   const [newNumber, setNewNumber] = useState('');
   const [loadingBlockedList, setLoadingBlockedList] = useState(false);
+  const [availableApps, setAvailableApps] = useState([]);
+  const [loadingApps, setLoadingApps] = useState(false);
+  const [showAppSelector, setShowAppSelector] = useState(false);
 
   useEffect(() => {
     checkPermissions();
@@ -33,14 +37,21 @@ const CallBlockingScreen = () => {
       checkServiceStatus();
       checkDialerStatus();
       loadBlockedNumbers();
+      loadAvailableApps();
     }
-  }, []);
+  }, [checkPermissions]);
 
-  const checkPermissions = async () => {
+  const checkPermissions = useCallback(async () => {
     try {
-      const phoneStateGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE);
-      const callLogGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_CALL_LOG);
-      const answerCallsGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ANSWER_PHONE_CALLS);
+      const phoneStateGranted = await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
+      );
+      const callLogGranted = await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
+      );
+      const answerCallsGranted = await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.ANSWER_PHONE_CALLS,
+      );
 
       setPermissions({
         phoneState: phoneStateGranted,
@@ -54,7 +65,7 @@ const CallBlockingScreen = () => {
     } catch (err) {
       console.warn(err);
     }
-  };
+  }, []);
 
   const requestPermissions = async () => {
     try {
@@ -64,9 +75,15 @@ const CallBlockingScreen = () => {
         PermissionsAndroid.PERMISSIONS.ANSWER_PHONE_CALLS,
       ]);
       setPermissions({
-        phoneState: granted[PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE] === PermissionsAndroid.RESULTS.GRANTED,
-        callLog: granted[PermissionsAndroid.PERMISSIONS.READ_CALL_LOG] === PermissionsAndroid.RESULTS.GRANTED,
-        answerCalls: granted[PermissionsAndroid.PERMISSIONS.ANSWER_PHONE_CALLS] === PermissionsAndroid.RESULTS.GRANTED,
+        phoneState:
+          granted[PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE] ===
+          PermissionsAndroid.RESULTS.GRANTED,
+        callLog:
+          granted[PermissionsAndroid.PERMISSIONS.READ_CALL_LOG] ===
+          PermissionsAndroid.RESULTS.GRANTED,
+        answerCalls:
+          granted[PermissionsAndroid.PERMISSIONS.ANSWER_PHONE_CALLS] ===
+          PermissionsAndroid.RESULTS.GRANTED,
       });
     } catch (err) {
       console.warn(err);
@@ -75,8 +92,15 @@ const CallBlockingScreen = () => {
 
   const checkServiceStatus = async () => {
     try {
-      const isEnabled = await CallBlockerService.isCallScreeningServiceEnabled();
-      setIsServiceEnabled(isEnabled);
+      const result = await CallBlockerService.isCallScreeningServiceEnabled();
+      setIsServiceEnabled(result.enabled);
+      if (result.enabled) {
+        Alert.alert(
+          'Éxito',
+          'El servicio de identificación de llamadas ha sido habilitado correctamente.',
+          [{text: 'OK'}],
+        );
+      }
     } catch (err) {
       console.warn(err);
     }
@@ -84,20 +108,27 @@ const CallBlockingScreen = () => {
 
   const checkDialerStatus = async () => {
     try {
-      const isDefault = await CallBlockerService.setAsDefaultDialer();
-      setIsDefaultDialer(isDefault);
-      setHasDialerPermission(isDefault);
+      const result = await CallBlockerService.isCallScreeningServiceEnabled();
+      setIsDefaultDialer(result.enabled);
+      setHasDialerPermission(result.enabled);
     } catch (err) {
       console.warn(err);
     }
   };
 
-  const requestDefaultDialer = async () => {
+  const requestDefaultDialer = async packageName => {
     try {
-      await CallBlockerService.setAsDefaultDialer();
-      checkDialerStatus();
+      await CallBlockerService.setAsDefaultDialer(packageName);
+      // El diálogo de selección se mostrará automáticamente
+      // y el sistema manejará la selección del usuario
+      setTimeout(checkServiceStatus, 2000);
     } catch (err) {
       console.warn(err);
+      Alert.alert(
+        'Error',
+        'No se pudo mostrar las opciones de configuración.',
+        [{text: 'OK'}],
+      );
     }
   };
 
@@ -113,6 +144,8 @@ const CallBlockingScreen = () => {
   const openCallScreeningSettings = async () => {
     try {
       await CallBlockerService.openCallScreeningSettings();
+      // Verificamos el estado después de un breve retraso
+      setTimeout(checkServiceStatus, 2000);
     } catch (err) {
       console.warn(err);
       Alert.alert('Error', 'No se pudo abrir la configuración del sistema.');
@@ -128,6 +161,18 @@ const CallBlockingScreen = () => {
       console.error('Error al cargar números bloqueados:', err);
     } finally {
       setLoadingBlockedList(false);
+    }
+  };
+
+  const loadAvailableApps = async () => {
+    setLoadingApps(true);
+    try {
+      const apps = await CallBlockerService.getAvailableCallBlockingApps();
+      setAvailableApps(apps || []);
+    } catch (err) {
+      console.warn(err);
+    } finally {
+      setLoadingApps(false);
     }
   };
 
@@ -163,11 +208,95 @@ const CallBlockingScreen = () => {
     }
   };
 
+  const renderAppSelector = () => {
+    return (
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showAppSelector}
+        onRequestClose={() => setShowAppSelector(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              Seleccionar App de ID de llamada
+            </Text>
+            {loadingApps ? (
+              <ActivityIndicator size="large" color="#2196F3" />
+            ) : (
+              <FlatList
+                data={availableApps}
+                keyExtractor={(item, index) => index.toString()}
+                renderItem={({item}) => (
+                  <TouchableOpacity
+                    style={styles.appSelectorItem}
+                    onPress={() => {
+                      setShowAppSelector(false);
+                      requestDefaultDialer(item.packageName);
+                    }}>
+                    <View style={styles.appInfo}>
+                      <Text style={styles.appName}>{item.appName}</Text>
+                      {item.isDefault && (
+                        <Text style={styles.defaultLabel}>Predeterminada</Text>
+                      )}
+                    </View>
+                    <View style={styles.appActions}>
+                      {item.packageName === 'com.callblocking' && (
+                        <TouchableOpacity
+                          style={[
+                            styles.selectButton,
+                            item.isDefault && styles.selectButtonDisabled,
+                          ]}
+                          disabled={item.isDefault}
+                          onPress={() => {
+                            setShowAppSelector(false);
+                            requestDefaultDialer(item.packageName);
+                          }}>
+                          <Text style={styles.selectButtonText}>
+                            {item.isDefault ? 'Actual' : 'Seleccionar'}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowAppSelector(false)}>
+              <Text style={styles.closeButtonText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderAvailableApps = () => {
+    return (
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>App de ID de llamada</Text>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => {
+            loadAvailableApps();
+            setShowAppSelector(true);
+          }}>
+          <Text style={styles.buttonText}>
+            Seleccionar App de ID de llamada
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   if (Platform.OS !== 'android' || Platform.Version < 28) {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Bloqueo de llamadas</Text>
-        <Text style={styles.note}>Disponible solo para Android 9 (Pie) o superior.</Text>
+        <Text style={styles.note}>
+          Disponible solo para Android 9 (Pie) o superior.
+        </Text>
       </View>
     );
   }
@@ -183,7 +312,9 @@ const CallBlockingScreen = () => {
         </Text>
         {!isServiceEnabled && (
           <>
-            <TouchableOpacity style={styles.button} onPress={enableCallBlocking}>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={enableCallBlocking}>
               <Text style={styles.buttonText}>Habilitar bloqueo</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -195,22 +326,38 @@ const CallBlockingScreen = () => {
         )}
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Marcador predeterminado</Text>
-        <Text>📱 Predeterminado: {isDefaultDialer ? '✅' : '❌'}</Text>
-        <Text>🔐 Permiso: {hasDialerPermission ? '✅' : '❌'}</Text>
-        {!isDefaultDialer && (
-          <TouchableOpacity style={styles.button} onPress={requestDefaultDialer}>
-            <Text style={styles.buttonText}>Establecer como marcador</Text>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Configuración de la Aplicación</Text>
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusText}>
+            Estado:{' '}
+            {isDefaultDialer ? 'App predeterminada' : 'No predeterminada'}
+          </Text>
+          <TouchableOpacity
+            style={[
+              styles.button,
+              isDefaultDialer ? styles.buttonDisabled : styles.buttonPrimary,
+            ]}
+            onPress={() => requestDefaultDialer('com.callblocking')}
+            disabled={isDefaultDialer}>
+            <Text style={styles.buttonText}>
+              {isDefaultDialer
+                ? 'Ya es la app predeterminada'
+                : 'Establecer como app predeterminada'}
+            </Text>
           </TouchableOpacity>
-        )}
+        </View>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Permisos</Text>
-        <Text>📞 Estado del teléfono: {permissions.phoneState ? '✅' : '❌'}</Text>
+        <Text>
+          📞 Estado del teléfono: {permissions.phoneState ? '✅' : '❌'}
+        </Text>
         <Text>📋 Registro llamadas: {permissions.callLog ? '✅' : '❌'}</Text>
-        <Text>📲 Contestar llamadas: {permissions.answerCalls ? '✅' : '❌'}</Text>
+        <Text>
+          📲 Contestar llamadas: {permissions.answerCalls ? '✅' : '❌'}
+        </Text>
       </View>
 
       <View style={styles.card}>
@@ -256,6 +403,9 @@ const CallBlockingScreen = () => {
           />
         )}
       </View>
+
+      {renderAvailableApps()}
+      {renderAppSelector()}
     </ScrollView>
   );
 };
@@ -347,6 +497,94 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    width: '90%',
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  appSelectorItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  appInfo: {
+    flex: 1,
+  },
+  appName: {
+    fontSize: 16,
+    color: '#333',
+  },
+  defaultLabel: {
+    fontSize: 12,
+    color: '#2196F3',
+    marginTop: 4,
+  },
+  appActions: {
+    marginLeft: 10,
+  },
+  selectButton: {
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  selectButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  selectButtonText: {
+    color: 'white',
+    fontSize: 14,
+  },
+  closeButton: {
+    marginTop: 20,
+    backgroundColor: '#f44336',
+    padding: 12,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  section: {
+    backgroundColor: '#fff',
+    padding: 16,
+    marginBottom: 16,
+    borderRadius: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  statusContainer: {
+    marginTop: 8,
+  },
+  buttonPrimary: {
+    backgroundColor: '#007AFF',
+  },
+  buttonDisabled: {
+    backgroundColor: '#ccc',
   },
 });
 

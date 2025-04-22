@@ -4,7 +4,7 @@ const {CallBlocker} = NativeModules;
 // console.log('desde service', CallBlocker);
 const isAndroid = Platform.OS === 'android';
 
-export  const CallBlockerService = {
+export const CallBlockerService = {
   setBlockedNumbers: async (numbers = []) => {
     if (!isAndroid) return;
     try {
@@ -74,15 +74,29 @@ export  const CallBlockerService = {
   },
 
   /** NUEVA FUNCIÓN */
-  setAsDefaultDialer: async () => {
+  setAsDefaultDialer: async packageName => {
     if (!isAndroid) return;
     try {
-      const result = await CallBlocker.setAsDefaultDialer();
+      // Si no se proporciona packageName, usar el de nuestra app
+      const pkgName = packageName || 'com.callblocking';
+      const result = await CallBlocker.setAsDefaultDialer(pkgName);
       console.log('Resultado al intentar ser dialer predeterminado:', result);
       return result;
     } catch (error) {
       console.error('Error al intentar establecer app como dialer:', error);
       throw error;
+    }
+  },
+
+  getAvailableCallBlockingApps: async () => {
+    if (!isAndroid) return [];
+    try {
+      const apps = await CallBlocker.getAvailableCallBlockingApps();
+      console.log('Aplicaciones disponibles para bloqueo de llamadas:', apps);
+      return apps;
+    } catch (error) {
+      console.error('Error al obtener aplicaciones de bloqueo:', error);
+      return [];
     }
   },
 };
