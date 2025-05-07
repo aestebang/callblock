@@ -31,6 +31,8 @@ const CallBlockingScreen = () => {
   const [loadingApps, setLoadingApps] = useState(false);
   const [showAppSelector, setShowAppSelector] = useState(false);
 
+  console.log('permiso', permissions);
+
   useEffect(() => {
     checkPermissions();
     if (Platform.OS === 'android' && Platform.Version >= 28) {
@@ -117,6 +119,8 @@ const CallBlockingScreen = () => {
   };
 
   const requestDefaultDialer = async packageName => {
+    console.log('Requesting default dialer:', packageName);
+
     try {
       await CallBlockerService.setAsDefaultDialer(packageName);
       // El diálogo de selección se mostrará automáticamente

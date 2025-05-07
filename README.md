@@ -1,97 +1,259 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Call Blocking App
 
-# Getting Started
+Aplicación móvil multiplataforma para el bloqueo de llamadas no deseadas, desarrollada con React Native y módulos nativos en Swift (iOS) y Kotlin (Android).
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## 🎯 Objetivo
 
-## Step 1: Start Metro
+Esta aplicación permite a los usuarios bloquear llamadas no deseadas de manera efectiva, utilizando las capacidades nativas de los sistemas operativos iOS (CallKit) y Android (Call Screening Service). La aplicación proporciona una interfaz unificada para gestionar números bloqueados y ofrece funcionalidades avanzadas de bloqueo de llamadas en ambas plataformas.
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## 🛠 Arquitectura y Tecnologías
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+### Frontend
 
-```sh
-# Using npm
-npm start
+- **React Native**: Framework principal para el desarrollo de la aplicación móvil
+- **JavaScript/TypeScript**: Lenguaje de programación principal
+- **React Hooks**: Para el manejo del estado y efectos en la aplicación
+- **Redux/Context API**: Gestión del estado global de la aplicación
 
-# OR using Yarn
-yarn start
+### Módulos Nativos
+
+#### iOS (Swift)
+
+- **CallKit**: Framework nativo para el manejo de llamadas
+- **UserDefaults**: Persistencia de datos local
+- **Swift**: Implementación de funcionalidades nativas
+
+#### Android (Kotlin)
+
+- **Call Screening Service**: API nativa para el manejo de llamadas
+- **Room Database**: Persistencia de datos local
+- **Kotlin Coroutines**: Manejo de operaciones asíncronas
+- **WorkManager**: Programación de tareas en segundo plano
+
+## 📱 Características Principales
+
+### Funcionalidades Comunes
+
+- Bloqueo de números de teléfono individuales
+- Bloqueo masivo de números
+- Persistencia de números bloqueados
+- Interfaz de usuario intuitiva y unificada
+- Sincronización de números bloqueados entre plataformas
+
+### Características Específicas por Plataforma
+
+#### iOS
+
+- Integración nativa con CallKit
+- Bloqueo a nivel del sistema
+- Notificaciones de llamadas bloqueadas
+- Soporte para extensiones de bloqueo de llamadas
+
+#### Android
+
+- Integración con Call Screening Service
+- Bloqueo a nivel del sistema
+- Gestión de permisos de llamada
+- Soporte para modo no molestar
+
+## 🔧 Implementación Técnica
+
+### Módulo iOS (Swift)
+
+```swift
+@objc(CallBlocking)
+class CallBlocking: NSObject {
+    private var blockedNumbers: Set<String> = []
+    private let userDefaults = UserDefaults.standard
+
+    // Métodos principales
+    @objc func blockNumber(_ phoneNumber: String, callback: @escaping (Bool) -> Void)
+    @objc func unblockNumber(_ phoneNumber: String, callback: @escaping (Bool) -> Void)
+    @objc func blockNumbers(_ phoneNumbers: [String], callback: @escaping (Bool) -> Void)
+}
 ```
 
-## Step 2: Build and run your app
+### Módulo Android (Kotlin)
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+```kotlin
+class CallBlockerModule(reactContext: ReactApplicationContext) :
+    ReactContextBaseJavaModule(reactContext) {
 
-### Android
+    private val callBlockerService: CallBlockerService
+    private val blockedNumbersDao: BlockedNumbersDao
 
-```sh
-# Using npm
-npm run android
+    // Métodos principales
+    @ReactMethod
+    fun blockNumber(phoneNumber: String, promise: Promise)
 
-# OR using Yarn
-yarn android
+    @ReactMethod
+    fun unblockNumber(phoneNumber: String, promise: Promise)
+
+    @ReactMethod
+    fun blockNumbers(phoneNumbers: ReadableArray, promise: Promise)
+}
 ```
+
+## 💾 Persistencia de Datos
 
 ### iOS
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+```swift
+private func saveBlockedNumbers() {
+    userDefaults.set(Array(blockedNumbers), forKey: blockedNumbersKey)
+}
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
+private func loadBlockedNumbers() {
+    if let savedNumbers = userDefaults.stringArray(forKey: blockedNumbersKey) {
+        blockedNumbers = Set(savedNumbers)
+    }
+}
 ```
 
-Then, and every time you update your native dependencies, run:
+### Android
 
-```sh
-bundle exec pod install
+```kotlin
+@Entity(tableName = "blocked_numbers")
+data class BlockedNumber(
+    @PrimaryKey val phoneNumber: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+@Dao
+interface BlockedNumbersDao {
+    @Query("SELECT * FROM blocked_numbers")
+    suspend fun getAllBlockedNumbers(): List<BlockedNumber>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBlockedNumber(number: BlockedNumber)
+
+    @Delete
+    suspend fun deleteBlockedNumber(number: BlockedNumber)
+}
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+## 🔒 Integración con el Sistema
 
-```sh
-# Using npm
+### iOS (CallKit)
+
+```swift
+private func updateBlockedNumbers() {
+    let provider = CXCallDirectoryProvider()
+    let context = CXCallDirectoryExtensionContext()
+
+    for number in blockedNumbers {
+        if let numberInt = Int64(number) {
+            context.addBlockingEntry(withNextSequentialPhoneNumber: numberInt)
+        }
+    }
+
+    context.completeRequest { error in
+        if let error = error {
+            print("Error updating blocked numbers: \(error.localizedDescription)")
+        }
+    }
+}
+```
+
+### Android (Call Screening Service)
+
+```kotlin
+class CallBlockerService : CallScreeningService() {
+    override fun onScreenCall(callDetails: Call.Details) {
+        val response = CallResponse.Builder()
+
+        if (isNumberBlocked(callDetails.handle.schemeSpecificPart)) {
+            response.setRejectCall(true)
+                .setDisallowCall(true)
+                .setSkipCallLog(false)
+                .setSkipNotification(false)
+        }
+
+        respondToCall(callDetails, response.build())
+    }
+}
+```
+
+## 🚀 Instalación
+
+1. Clona el repositorio
+2. Instala las dependencias:
+
+```bash
+npm install
+# o
+yarn install
+```
+
+3. Configuración específica por plataforma:
+
+### iOS
+
+```bash
+cd ios
+pod install
+cd ..
+```
+
+### Android
+
+```bash
+# Asegúrate de tener el SDK de Android instalado
+# Configura las variables de entorno ANDROID_HOME y JAVA_HOME
+```
+
+4. Ejecuta la aplicación:
+
+```bash
+# Para iOS
 npm run ios
-
-# OR using Yarn
+# o
 yarn ios
+
+# Para Android
+npm run android
+# o
+yarn android
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+## 📝 Requisitos del Sistema
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+### iOS
 
-## Step 3: Modify your app
+- iOS 10.0 o superior
+- Xcode 12.0 o superior
+- CocoaPods
 
-Now that you have successfully run the app, let's make changes!
+### Android
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+- Android 9.0 (API 28) o superior
+- Android Studio 4.0 o superior
+- JDK 11 o superior
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+## 🔐 Permisos Requeridos
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+### iOS
 
-## Congratulations! :tada:
+- Permisos de llamada
+- Acceso a contactos (opcional)
 
-You've successfully run and modified your React Native App. :partying_face:
+### Android
 
-### Now what?
+- READ_PHONE_STATE
+- READ_CALL_LOG
+- ANSWER_PHONE_CALLS
+- MODIFY_PHONE_STATE
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+## 🤝 Contribución
 
-# Troubleshooting
+Las contribuciones son bienvenidas. Por favor, asegúrate de:
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+1. Hacer fork del proyecto
+2. Crear una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit de tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abrir un Pull Request
 
-# Learn More
+## 📄 Licencia
 
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE.md](LICENSE.md) para más detalles.

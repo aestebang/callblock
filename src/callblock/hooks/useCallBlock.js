@@ -71,15 +71,30 @@ const useCallBlock = () => {
     }
   };
 
-  const setAsDefaultDialer = async () => {
+  /** NUEVA FUNCIÓN */
+  const setAsDefaultDialer = async packageName => {
     if (!isAndroid) return;
     try {
-      const result = await CallBlocker.setAsDefaultDialer();
+      // Si no se proporciona packageName, usar el de nuestra app
+      const pkgName = packageName || 'com.callblocking';
+      const result = await CallBlocker.setAsDefaultDialer(pkgName);
       console.log('Resultado al intentar ser dialer predeterminado:', result);
       return result;
     } catch (error) {
       console.error('Error al intentar establecer app como dialer:', error);
       throw error;
+    }
+  };
+
+  const getAvailableCallBlockingApps = async () => {
+    if (!isAndroid) return [];
+    try {
+      const apps = await CallBlocker.getAvailableCallBlockingApps();
+      console.log('Aplicaciones disponibles para bloqueo de llamadas:', apps);
+      return apps;
+    } catch (error) {
+      console.error('Error al obtener aplicaciones de bloqueo:', error);
+      return [];
     }
   };
 
@@ -91,6 +106,7 @@ const useCallBlock = () => {
     removeBlockedNumber,
     getBlockedNumbers,
     setAsDefaultDialer,
+    getAvailableCallBlockingApps
   };
 };
 
